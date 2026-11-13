@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Supermercado a domicilio</title>
+  <style>
+    :root {
+      --fondo: #f4f6f3;
+      --panel: #ffffff;
+      --texto: #1d2a22;
+      --tenue: #5d6b62;
+      --marca: #1f7a4d;
+      --usuario: #e0f0e6;
+      --borde: #dbe2dc;
+      --error: #a32929;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex;
+      justify-content: center;
+      background: var(--fondo);
+      color: var(--texto);
+      font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .app {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 760px;
+      height: 100dvh;
+      background: var(--panel);
+      border-inline: 1px solid var(--borde);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--borde);
+    }
+    h1 { margin: 0; font-size: 1.1rem; }
+    header p { margin: 2px 0 0; color: var(--tenue); font-size: .85rem; }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      background: var(--marca);
+      color: #fff;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .55; cursor: default; }
+    button.secundario {
+      flex: none;
+      padding: 7px 12px;
+      background: transparent;
+      color: var(--marca);
+      border: 1px solid var(--borde);
+      font-size: .85rem;
+    }
+    #mensajes {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+    }
+    .mensaje {
+      max-width: 85%;
+      padding: 9px 13px;
+      border-radius: 12px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .bot { align-self: flex-start; background: var(--fondo); }
+    .usuario { align-self: flex-end; background: var(--usuario); }
+    .error { align-self: center; color: var(--error); font-size: .9rem; }
+    .pensando { color: var(--tenue); font-style: italic; }
+    form {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--borde);
+    }
+    textarea {
+      flex: 1;
+      resize: none;
+      min-width: 0;
+      padding: 9px 11px;
+      border: 1px solid var(--borde);
+      border-radius: 8px;
+      font: inherit;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Supermercado a domicilio</h1>
+        <p>Pide tu mercado escribiendo como en un chat</p>
+      </div>
+      <button id="nueva" class="secundario" type="button">Nueva conversación</button>
+    </header>
+    <section id="mensajes" aria-live="polite"></section>
+    <form id="formulario">
+      <textarea id="entrada" rows="2" maxlength="2000" placeholder="Ej: necesito arroz y 2 litros de leche" aria-label="Mensaje" required></textarea>
+      <button id="enviar" type="submit">Enviar</button>
+    </form>
+  </main>
+
+  <script>
+    const mensajes = document.getElementById('mensajes');
+    const formulario = document.getElementById('formulario');
+    const entrada = document.getElementById('entrada');
+    const enviar = document.getElementById('enviar');
+    const SALUDO = '¡Hola! Te ayudo a buscar productos y a hacer tu pedido a domicilio. ¿Qué necesitas hoy?';
+
+    let sesion = crypto.randomUUID();
+
+    function agregar(texto, clase) {
+      const burbuja = document.createElement('div');
+      burbuja.className = 'mensaje ' + clase;
+      burbuja.textContent = texto;
+      mensajes.appendChild(burbuja);
+      mensajes.scrollTop = mensajes.scrollHeight;
+      return burbuja;
+    }
+
+    async function conversar(texto) {
+      agregar(texto, 'usuario');
+      const pensando = agregar('Escribiendo…', 'bot pensando');
+      enviar.disabled = true;
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sesion, mensaje: texto })
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const datos = await res.json();
+        pensando.remove();
+        agregar(datos.respuesta, 'bot');
+      } catch (e) {
+        pensando.remove();
+        agregar('No pude responder en este momento. Revisa que el servidor MCP y la clave de Gemini estén configurados e inténtalo de nuevo.', 'error');
+      } finally {
+        enviar.disabled = false;
+        entrada.focus();
+      }
+    }
+
+    formulario.addEventListener('submit', (evento) => {
+      evento.preventDefault();
+      const texto = entrada.value.trim();
+      if (!texto || enviar.disabled) return;
+      entrada.value = '';
+      conversar(texto);
+    });
+
+    entrada.addEventListener('keydown', (evento) => {
+      if (evento.key === 'Enter' && !evento.shiftKey) {
+        evento.preventDefault();
+        formulario.requestSubmit();
+      }
+    });
+
+    document.getElementById('nueva').addEventListener('click', () => {
+      fetch('/api/chat/' + encodeURIComponent(sesion), { method: 'DELETE' }).catch(() => {});
+      sesion = crypto.randomUUID();
+      mensajes.replaceChildren();
+      agregar(SALUDO, 'bot');
+      entrada.focus();
+    });
+
+    agregar(SALUDO, 'bot');
+    entrada.focus();
+  </script>
+</body>
+</html>

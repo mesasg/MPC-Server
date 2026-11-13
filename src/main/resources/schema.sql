@@ -1,8 +1,6 @@
 -- ============================================================
 -- Script de creación de la base de datos `tareas`
 -- Ejecutar una sola vez antes de levantar el servidor MCP.
--- Ejecuta en WinPowerShell PS C:\Users\Diego\Downloads\tarea-mcp\tarea-mcp> mysql -u root -p -e "source C:/Users/Diego/Downloads/tarea-mcp/tarea-mcp/src/main/resources/schema.sql"
--- ============================================================
 
 CREATE DATABASE IF NOT EXISTS labmcp
     CHARACTER SET utf8mb4
